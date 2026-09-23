@@ -11,6 +11,10 @@ import (
 	"github.com/severity1/claude-agent-sdk-go/internal/shared"
 )
 
+// initialScanBuffer is the starting size of the stdout line buffer. The
+// scanner grows it up to MaxBufferSize when a longer line arrives.
+const initialScanBuffer = 64 * 1024
+
 // handleStdout processes stdout in a separate goroutine
 func (t *Transport) handleStdout() {
 	defer t.wg.Done()
@@ -26,8 +30,9 @@ func (t *Transport) handleStdout() {
 	if t.options != nil && t.options.MaxBufferSize != nil {
 		scanTokenSize = *t.options.MaxBufferSize
 	}
-	buf := make([]byte, scanTokenSize)
-	scanner.Buffer(buf, scanTokenSize)
+	// Start small and let the scanner grow the buffer up to the limit, so a
+	// high limit costs memory only when a line needs it.
+	scanner.Buffer(make([]byte, 0, initialScanBuffer), scanTokenSize)
 
 	for scanner.Scan() {
 		select {

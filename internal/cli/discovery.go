@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/severity1/claude-agent-sdk-go/internal/shared"
@@ -438,12 +439,20 @@ func ValidateWorkingDirectory(cwd string) error {
 	return nil
 }
 
+// versionWarnings caches the result of CheckCLIVersion per CLI path, so each
+// connect does not start the CLI once more only to read its version.
+var versionWarnings sync.Map
+
 // CheckCLIVersion checks if CLI version is below minimum and returns a warning.
 // Mimics Python SDK _check_claude_version() behavior.
 // Non-blocking - errors are silently ignored.
+// A version that was read is cached per CLI path; a failed read is not.
 func CheckCLIVersion(ctx context.Context, cliPath string) (warning string) {
 	if os.Getenv("CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK") != "" {
 		return ""
+	}
+	if cached, ok := versionWarnings.Load(cliPath); ok {
+		return cached.(string)
 	}
 
 	// 2-second timeout (matches Python SDK)
@@ -457,8 +466,13 @@ func CheckCLIVersion(ctx context.Context, cliPath string) (warning string) {
 		return "" // Silently ignore errors (matches Python SDK)
 	}
 
-	versionOutput := strings.TrimSpace(string(output))
+	warning = versionWarning(strings.TrimSpace(string(output)))
+	versionWarnings.Store(cliPath, warning)
+	return warning
+}
 
+// versionWarning returns the warning for the output of `claude -v`.
+func versionWarning(versionOutput string) string {
 	// Extract version with regex (matches Python SDK)
 	match := versionRegex.FindStringSubmatch(versionOutput)
 	if len(match) < 2 {

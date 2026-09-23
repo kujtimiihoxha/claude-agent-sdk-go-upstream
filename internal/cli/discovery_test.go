@@ -1676,6 +1676,17 @@ func TestCheckCLIVersion(t *testing.T) {
 			t.Errorf("Expected silent failure, got: %s", warning)
 		}
 	})
+
+	t.Run("cached_per_path", func(t *testing.T) {
+		mockCLI := createVersionMockCLI(t, "1.0.0")
+		first := CheckCLIVersion(ctx, mockCLI)
+		if err := os.Remove(mockCLI); err != nil {
+			t.Fatal(err)
+		}
+		if again := CheckCLIVersion(ctx, mockCLI); again != first || again == "" {
+			t.Errorf("Expected the cached warning %q, got: %q", first, again)
+		}
+	})
 }
 
 // TestCheckCLIVersionSkipEnvVar tests CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK env var
