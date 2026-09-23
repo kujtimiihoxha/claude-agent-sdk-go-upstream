@@ -895,6 +895,61 @@ func TestParseRateLimitEventMessage(t *testing.T) {
 		}
 	})
 
+	t.Run("utilization, unified windows, and the raw object", func(t *testing.T) {
+		msg, err := parser.ParseMessage(map[string]any{
+			"type": "rate_limit_event",
+			"rate_limit_info": map[string]any{
+				"status":        "allowed_warning",
+				"resetsAt":      float64(1778598000),
+				"rateLimitType": "seven_day",
+				"utilization":   0.82,
+				"unifiedWindows": map[string]any{
+					"five_hour": map[string]any{"utilization": 0.4, "resetsAt": float64(1778590000)},
+					"seven_day": map[string]any{"utilization": 0.82, "resetsAt": float64(1778598000)},
+					"broken":    "not an object",
+					"no_share":  map[string]any{"resetsAt": float64(1)},
+				},
+				"futureField": "kept",
+			},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		info := msg.(*shared.RateLimitEventMessage).RateLimitInfo
+		if info.Utilization == nil || *info.Utilization != 0.82 {
+			t.Errorf("Utilization = %v, want 0.82", info.Utilization)
+		}
+		want := map[string]shared.RateLimitWindow{
+			"five_hour": {Utilization: 0.4, ResetsAt: 1778590000},
+			"seven_day": {Utilization: 0.82, ResetsAt: 1778598000},
+		}
+		if len(info.UnifiedWindows) != len(want) {
+			t.Fatalf("UnifiedWindows = %v, want %v", info.UnifiedWindows, want)
+		}
+		for name, window := range want {
+			if info.UnifiedWindows[name] != window {
+				t.Errorf("UnifiedWindows[%q] = %v, want %v", name, info.UnifiedWindows[name], window)
+			}
+		}
+		if info.Raw["futureField"] != "kept" {
+			t.Errorf("Raw lost a field the type does not name: %v", info.Raw)
+		}
+	})
+
+	t.Run("missing utilization stays nil", func(t *testing.T) {
+		msg, err := parser.ParseMessage(map[string]any{
+			"type":            "rate_limit_event",
+			"rate_limit_info": map[string]any{"status": "allowed", "rateLimitType": "five_hour"},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		info := msg.(*shared.RateLimitEventMessage).RateLimitInfo
+		if info.Utilization != nil || info.UnifiedWindows != nil {
+			t.Errorf("expected no utilization, got %v and %v", info.Utilization, info.UnifiedWindows)
+		}
+	})
+
 	t.Run("missing optional uuid and session_id is ok", func(t *testing.T) {
 		msg, err := parser.ParseMessage(map[string]any{
 			"type": "rate_limit_event",

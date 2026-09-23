@@ -51,6 +51,9 @@ type RateLimitEventMessage = shared.RateLimitEventMessage
 // RateLimitInfo is the window state carried by RateLimitEventMessage.
 type RateLimitInfo = shared.RateLimitInfo
 
+// RateLimitWindow is one window of RateLimitInfo.UnifiedWindows.
+type RateLimitWindow = shared.RateLimitWindow
+
 // MessageIterator provides iteration over messages.
 type MessageIterator = shared.MessageIterator
 

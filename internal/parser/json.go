@@ -471,6 +471,30 @@ func (p *Parser) parseRateLimitEventMessage(data map[string]any) (*shared.RateLi
 	if b, ok := infoRaw["isUsingOverage"].(bool); ok {
 		info.IsUsingOverage = b
 	}
+	if f, ok := infoRaw["utilization"].(float64); ok {
+		info.Utilization = &f
+	}
+	if windows, ok := infoRaw["unifiedWindows"].(map[string]any); ok {
+		for name, value := range windows {
+			fields, ok := value.(map[string]any)
+			if !ok {
+				continue
+			}
+			utilization, ok := fields["utilization"].(float64)
+			if !ok {
+				continue
+			}
+			window := shared.RateLimitWindow{Utilization: utilization}
+			if f, ok := fields["resetsAt"].(float64); ok {
+				window.ResetsAt = int64(f)
+			}
+			if info.UnifiedWindows == nil {
+				info.UnifiedWindows = map[string]shared.RateLimitWindow{}
+			}
+			info.UnifiedWindows[name] = window
+		}
+	}
+	info.Raw = infoRaw
 
 	msg := &shared.RateLimitEventMessage{
 		RateLimitInfo: info,

@@ -298,6 +298,23 @@ type RateLimitInfo struct {
 	OverageStatus   string `json:"overageStatus,omitempty"`
 	OverageResetsAt int64  `json:"overageResetsAt,omitempty"`
 	IsUsingOverage  bool   `json:"isUsingOverage,omitempty"`
+	// Utilization is the used fraction of the RateLimitType window, usually
+	// 0 to 1. It is above 1 when usage goes past the window. Nil when the CLI
+	// does not report it.
+	Utilization *float64 `json:"utilization,omitempty"`
+	// UnifiedWindows holds the used fraction and the reset of every window
+	// that the CLI tracks, keyed by window type such as five_hour or
+	// seven_day. The CLI marks the field internal, so its shape can change.
+	UnifiedWindows map[string]RateLimitWindow `json:"unifiedWindows,omitempty"`
+	// Raw is the whole rate_limit_info object, so a field that this type does
+	// not name stays available.
+	Raw map[string]any `json:"-"`
+}
+
+// RateLimitWindow is one window of RateLimitInfo.UnifiedWindows.
+type RateLimitWindow struct {
+	Utilization float64 `json:"utilization"`
+	ResetsAt    int64   `json:"resetsAt"`
 }
 
 // RateLimitEventMessage is a session heartbeat from the CLI announcing the
